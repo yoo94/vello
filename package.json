@@ -1,0 +1,48 @@
+{
+  "name": "vello",
+  "version": "1.0.0",
+  "description": "An enhanced HTTP client that improves upon fetch API limitations with automatic error handling, JSON conversion, timeout support, and interceptors.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist/"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "prepublishOnly": "npm run build",
+    "test": "echo \"No tests specified\" && exit 0"
+  },
+  "keywords": [
+    "fetch",
+    "http",
+    "client",
+    "api",
+    "request",
+    "typescript",
+    "interceptor",
+    "timeout",
+    "json",
+    "error-handling",
+    "react",
+    "nextjs",
+    "browser",
+    "universal"
+  ],
+  "author": "yoo94",
+  "license": "MIT",
+  "devDependencies": {
+    "typescript": "^5.0.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/yoo94/vello.git"
+  },
+  "bugs": {
+    "url": "https://github.com/yoo94/vello/issues"
+  },
+  "homepage": "https://github.com/yoo94/vello#readme"
+}
