@@ -13,7 +13,7 @@ interface CreateUserRequest {
   email: string;
 }
 
-// API 클라이언트 초기화 - retry 기능 포함
+// API 클라이언트 초기화 - retry 및 캐싱 기능 포함
 const api = new vello({
   baseUrl: 'https://jsonplaceholder.typicode.com',
   timeout: 15000,
@@ -29,6 +29,13 @@ const api = new vello({
              error.code === 'TIMEOUT' || 
              (error.response?.status !== undefined && error.response.status >= 500);
     }
+  },
+  cache: {
+    enabled: true,
+    ttl: 5 * 60 * 1000, // 5분 캐시
+    storage: 'memory',
+    methods: ['GET', 'POST'], // GET과 POST 요청 캐시
+    safePaths: ['/search', '/query'] // 안전한 POST 경로
   }
 });
 

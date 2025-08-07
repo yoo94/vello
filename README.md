@@ -9,7 +9,14 @@ fetch API의 한계점들을 개선한 사용하기 쉬운 HTTP 클라이언트 
 - ✅ **자동 HTTP 오류 처리**: response.ok 체크 및 오류 상태 코드 자동 throw
 - ✅ **자동 JSON 변환**: 요청/응답 body의 자동 JSON 직렬화/역직렬화
 - ✅ **타임아웃 지원**: AbortController를 사용한 요청 타임아웃 구현
-- ✅ **인터셉터**: 요청/응답/에러 인터## 응답 객체 구조
+- ✅ **인터셉터**: 요청/응답/에러 인터셉터 지원
+- ✅ **TypeScript 완전 지원**: 타입 안전성과 IntelliSense 지원
+- ✅ **다양한 응답 타입**: json, text, blob, arrayBuffer 지원
+- ✅ **Retry 지원**: 자동 재시도 및 커스텀 재시도 로직
+- ✅ **에러코드에 대한 안내**: 더 상세한 안내 제공
+- ✅ **캐싱 지원**: 메모리, localStorage, 커스텀 스토리지 캐싱
+
+## 응답 객체 구조
 
 ```ts
 interface VelloResponse<T> {
@@ -20,12 +27,6 @@ interface VelloResponse<T> {
   config: RequestConfig; // 요청 설정
 }
 ```
-
-- ✅ **TypeScript 완전 지원**: 타입 안전성과 IntelliSense 지원
-- ✅ **다양한 응답 타입**: json, text, blob, arrayBuffer 지원
-- ✅ **retry지원**
-- ✅ **에러코드에대한 안내** : 더 상세한 안내 제공
-
 
 ## 설치
 
@@ -197,6 +198,235 @@ const response = await api.get('/unstable-endpoint', {
 // Retry 설정 메서드들
 api.setRetries(3);                    // 최대 재시도 횟수 설정
 api.setRetryDelay(1500);              // 재시도 지연 시간 설정
+api.setRetryCondition((error) => {    // 재시도 조건 설정
+  return error.response?.status === 503; // 503 에러에만 재시도
+});
+```
+
+### 캐싱 기능
+
+vello는 GET 요청에 대한 강력한 캐싱 기능을 제공합니다.
+
+#### 기본 메모리 캐싱
+
+```typescript
+// 전역 캐싱 설정
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    ttl: 5 * 60 * 1000,  // 5분간 캐시
+    storage: 'memory'     // 메모리에 저장
+  }
+});
+
+// 첫 번째 요청 - 서버에서 가져옴
+const users1 = await api.get('/users');
+console.log(users1.statusText); // "OK"
+
+// 두 번째 요청 - 캐시에서 가져옴 (빠름!)
+const users2 = await api.get('/users');
+console.log(users2.statusText); // "OK (Cached)"
+```
+
+#### localStorage 캐싱
+
+```typescript
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    ttl: 30 * 60 * 1000,    // 30분간 캐시
+    storage: 'localStorage'  // localStorage에 저장 (브라우저 재시작 후에도 유지)
+  }
+});
+```
+
+#### 개별 요청 캐싱
+
+```typescript
+// 기본적으로는 캐싱하지 않고, 특정 요청만 캐싱
+const api = new vello('https://api.example.com');
+
+// 이 요청만 캐싱됨
+const importantData = await api.get('/expensive-data', {
+  cache: {
+    enabled: true,
+    ttl: 60 * 60 * 1000,  // 1시간
+    key: 'custom-cache-key'  // 커스텀 캐시 키
+  }
+});
+```
+
+#### 커스텀 캐시 키
+
+```typescript
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    ttl: 10 * 60 * 1000,
+    key: (url, config) => {
+      // 사용자 ID를 포함한 캐시 키 생성
+      const userId = getCurrentUserId();
+      return `user-${userId}-${url}`;
+    }
+  }
+});
+```
+
+#### 커스텀 스토리지
+
+```typescript
+// Redis나 다른 저장소 사용
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    storage: 'custom',
+    customStorage: {
+      get: async (key) => {
+        return await redis.get(key);
+      },
+      set: async (key, value, ttl) => {
+        await redis.setex(key, ttl / 1000, JSON.stringify(value));
+      },
+      delete: async (key) => {
+        await redis.del(key);
+      },
+      clear: async () => {
+        await redis.flushall();
+      }
+    }
+  }
+});
+```
+
+#### 캐시 관리
+
+```typescript
+// 캐시 통계 확인
+const stats = api.getCacheStats();
+console.log(stats); // { size: 3, keys: ['key1', 'key2', 'key3'] }
+
+// 특정 캐시 항목 삭제
+api.deleteCacheItem('specific-cache-key');
+
+// 전체 캐시 지우기
+api.clearCache();
+
+// 캐시 설정 변경
+api.setCacheConfig({
+  enabled: true,
+  ttl: 15 * 60 * 1000,  // 15분으로 변경
+  storage: 'sessionStorage'
+});
+```
+
+#### POST 요청 캐싱
+
+vello는 조회성 POST 요청에 대해서도 캐싱을 지원합니다.
+
+##### 특정 HTTP 메서드 캐싱
+
+```typescript
+// GET과 POST만 캐시
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    methods: ['GET', 'POST'],  // 캐시할 메서드 지정
+    ttl: 5 * 60 * 1000
+  }
+});
+
+// 복잡한 검색 요청 (POST로 캐시됨)
+const searchResult = await api.post('/search', {
+  query: 'complex search',
+  filters: { category: 'tech', date: '2024' },
+  pagination: { page: 1, size: 20 }
+});
+```
+
+##### 안전한 POST 경로 지정
+
+```typescript
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    safePaths: ['/search', '/query', '/filter'],  // 이 경로들의 POST는 캐시
+    ttl: 10 * 60 * 1000
+  }
+});
+
+// /search 경로의 POST는 자동으로 캐시됨
+const results = await api.post('/search', searchData);
+```
+
+##### GraphQL 요청 자동 캐싱
+
+```typescript
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    ttl: 5 * 60 * 1000
+  }
+});
+
+// GraphQL 요청은 자동으로 감지되어 캐시됨
+const data = await api.post('/graphql', {
+  query: `
+    query GetUsers {
+      users { id name email }
+    }
+  `
+}, {
+  headers: {
+    'Content-Type': 'application/graphql'
+  }
+});
+```
+
+##### Unsafe 메서드 전면 허용
+
+```typescript
+// 주의: 모든 HTTP 메서드 캐시 허용 (개발/테스트용)
+const api = new vello({
+  baseUrl: 'https://api.example.com',
+  cache: {
+    enabled: true,
+    allowUnsafeMethods: true,  // POST, PUT, PATCH, DELETE 모두 캐시
+    ttl: 30000  // 짧은 TTL 권장
+  }
+});
+
+// POST, PUT, PATCH 모두 캐시됨
+await api.post('/data', postData);
+await api.put('/data/1', putData);
+await api.patch('/data/1', patchData);
+```
+
+##### 개별 요청 캐시 제어
+
+```typescript
+const api = new vello('https://api.example.com');
+
+// 특정 POST 요청만 캐시
+const expensiveData = await api.post('/expensive-search', searchQuery, {
+  cache: {
+    enabled: true,
+    allowUnsafeMethods: true,  // 이 요청만 POST 캐시 허용
+    ttl: 10 * 60 * 1000,
+    key: 'expensive-search-cache'  // 커스텀 캐시 키
+  }
+});
+```
+  ttl: 15 * 60 * 1000,  // 15분으로 변경
+  storage: 'sessionStorage'
+});
+```
 api.setRetryCondition((error) => {    // 재시도 조건 설정
   return error.response?.status === 503; // Service Unavailable일 때만 재시도
 });

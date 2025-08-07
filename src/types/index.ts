@@ -5,21 +5,48 @@ export interface RetryConfig {
   retryDelayFunction?: (retryCount: number, error: VelloError) => number;
 }
 
+export interface CacheConfig {
+  enabled?: boolean;
+  ttl?: number; // Time to live (밀리초)
+  storage?: 'memory' | 'localStorage' | 'sessionStorage' | 'custom';
+  key?: string | ((url: string, config: RequestConfig) => string);
+  methods?: HttpMethod[]; // 캐시할 HTTP 메서드들
+  allowUnsafeMethods?: boolean; // POST, PUT, PATCH 등 unsafe 메서드 캐시 허용
+  safePaths?: string[]; // 안전한 POST 요청 경로들 (예: /search, /query)
+  customStorage?: {
+    get: (key: string) => Promise<any> | any;
+    set: (key: string, value: any, ttl?: number) => Promise<void> | void;
+    delete: (key: string) => Promise<void> | void;
+    clear: () => Promise<void> | void;
+  };
+}
+
+export interface CachedResponse<T = any> {
+  data: T;
+  timestamp: number;
+  ttl: number;
+  headers: Record<string, string>;
+  status: number;
+  statusText: string;
+}
+
 export interface VelloConfig {
   baseUrl: string;
   timeout?: number;
   defaultHeaders?: Record<string, string>;
   retry?: RetryConfig;
+  cache?: CacheConfig;
   requestInterceptor?: (config: RequestConfig) => RequestConfig | Promise<RequestConfig>;
   responseInterceptor?: (response: VelloResponse<any>) => VelloResponse<any> | Promise<VelloResponse<any>>;
   errorInterceptor?: (error: VelloError) => void | Promise<void>;
 }
 
-export interface RequestConfig extends RequestInit {
+export interface RequestConfig extends Omit<RequestInit, 'cache'> {
   timeout?: number;
   baseUrl?: string;
   responseType?: 'json' | 'text' | 'blob' | 'arrayBuffer';
   retry?: RetryConfig;
+  cache?: CacheConfig;
 }
 
 export interface VelloResponse<T = any> {
